@@ -19,7 +19,7 @@ import qualified Models
 import qualified DB
 import SnapshotGenerator         (generateSnapshot)
 
--- 1. 创建 Snapshot：调用 generateSnapshot
+-- 1. Generate Snapshot: generateSnapshot
 createSnapshotHandler :: Connection -> API.SparqlInput -> Handler API.SnapshotCreated
 createSnapshotHandler conn inp = do
   eres <- liftIO $ generateSnapshot conn inp
@@ -29,7 +29,7 @@ createSnapshotHandler conn inp = do
     Right (_, created) ->
       pure created
 
--- 2. 根据 name 查询 Snapshot
+-- 2. Query Snapshot by name
 getSnapshotHandler :: Connection -> T.Text -> Handler Models.Snapshot
 getSnapshotHandler conn n = do
   xs <- liftIO $ DB.getAllSnapshots conn
@@ -37,11 +37,11 @@ getSnapshotHandler conn n = do
     (s:_) -> pure s
     []    -> throwError err404 { errBody = "Snapshot not found" }
 
--- 3. 列出所有 Snapshots
+-- 3. List all Snapshots
 listSnapshotsHandler :: Connection -> Handler [Models.Snapshot]
 listSnapshotsHandler = liftIO . DB.getAllSnapshots
 
--- 4. 获取 Snapshot 的 signature
+-- 4. Get signature of Snapshot 
 getSignatureHandler :: Connection -> T.Text -> Handler Models.Signature
 getSignatureHandler conn n = do
   xs <- liftIO $ DB.getAllSnapshots conn
@@ -55,12 +55,12 @@ getSignatureHandler conn n = do
     [] ->
       throwError err404 { errBody = "Signature not found" }
 
--- 5. 删除所有 Snapshots
+-- 5. Delete all Snapshots
 deleteAllSnapshotsHandler :: Connection -> Handler NoContent
 deleteAllSnapshotsHandler conn =
   liftIO (DB.deleteAllSnapshots conn) >> pure NoContent
 
--- 6. 删除指定 name 的 Snapshot
+-- 6. Delete the snapshot with the specified name
 deleteSnapshotHandler :: Connection -> T.Text -> Handler NoContent
 deleteSnapshotHandler conn n = do
   xs <- liftIO $ DB.getAllSnapshots conn
@@ -72,11 +72,11 @@ deleteSnapshotHandler conn n = do
           ]
   pure NoContent
 
--- 7. 返回 OpenAPI 文档
+-- 7. Return OpenAPI Document
 openApiHandler :: Handler BL.ByteString
 openApiHandler = pure $ encode (toOpenApi API.snapshotApi)
 
--- 组合所有处理函数
+-- Combine all processing functions
 server :: Connection -> Server API.FullAPI
 server conn = snapshotServer conn :<|> openApiHandler
 snapshotServer :: Connection -> Server API.SnapshotAPI
