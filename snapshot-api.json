@@ -1,0 +1,96 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+      "title": "Snapshot API",
+      "version": "1.0.0"
+    },
+    "paths": {
+      "/snapshots": {
+        "get": {
+          "summary": "Get all snapshots",
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Snapshot"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "summary": "Create a snapshot",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotInput"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Created snapshot ID",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "Snapshot": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "relations": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "SnapshotInput": {
+          "type": "object",
+          "properties": {
+            "relations": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          },
+          "required": ["relations"]
+        }
+      }
+    }
+  }
+  

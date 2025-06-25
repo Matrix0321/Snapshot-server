@@ -1,0 +1,16 @@
+dist-newstyle/
+.cabal-sandbox/
+cabal.sandbox.config
+*.hi
+*.o
+*.dyn_o
+*.dyn_hi
+*.exe
+*.swp
+*.bak
+*.tmp
+*.log
+.stack-work/
+.idea/
+.DS_Store
+snapshot_report.csv

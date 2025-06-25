@@ -1,0 +1,28 @@
+[
+  {
+    "snapshotName": "countriesAndCapitals",
+    "sortSymbols": ["Country","City"],
+    "relations": [
+      {
+        "riRelationName": "capital",
+        "riVariables": ["country","countryLabel","capital","capitalLabel"],
+        "riQuery": "PREFIX wdt: <http://www.wikidata.org/prop/direct/> PREFIX wikibase: <http://wikiba.se/ontology#> PREFIX bd: <http://www.bigdata.com/rdf#> SELECT ?country ?countryLabel ?capital ?capitalLabel WHERE { ?country wdt:P36 ?capital . SERVICE wikibase:label { bd:serviceParam wikibase:language \"en\". } } LIMIT 100",
+        "riDomainSort": "Country",
+        "riRangeSort": "City"
+      }
+    ]
+  },
+  {
+    "snapshotName": "languagesByCountry",
+    "sortSymbols": ["Country","Language"],
+    "relations": [
+      {
+        "riRelationName": "officialLanguage",
+        "riVariables": ["country","countryLabel","language","languageLabel"],
+        "riQuery": "PREFIX wdt: <http://www.wikidata.org/prop/direct/> PREFIX wikibase: <http://wikiba.se/ontology#> PREFIX bd: <http://www.bigdata.com/rdf#> SELECT ?country ?countryLabel ?language ?languageLabel WHERE { ?country wdt:P37 ?language . SERVICE wikibase:label { bd:serviceParam wikibase:language \"en\". } } LIMIT 100",
+        "riDomainSort": "Country",
+        "riRangeSort": "Language"
+      }
+    ]
+  }
+]
