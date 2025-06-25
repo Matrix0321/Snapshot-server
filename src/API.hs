@@ -11,51 +11,49 @@ module API
   , FullAPI
   , snapshotApi
   , fullApi
-  , SparqlInput(..)
-  , SnapshotCreated(..)
+  , SparqlInput(..)      
+  , SnapshotCreated(..)  
   ) where
 
-import Servant
-import Servant.API.ContentTypes ()
-import GHC.Generics             (Generic)
-import Data.Aeson               (FromJSON, ToJSON)
-import Data.Text                (Text)
-import qualified Data.ByteString.Lazy as BL
-import qualified Models         as M
-import Data.OpenApi             (ToSchema)
-import Types
+import           Servant
+import           GHC.Generics               (Generic)
+import           Data.Aeson                 (FromJSON, ToJSON)
+import           Data.Text                  (Text)
+import qualified Data.ByteString.Lazy       as BL
+import           Data.OpenApi               (ToSchema)
 
+import qualified Models                     as Models
+import           Types                      (Page, Limit, SortBy, SortOrder)
 
+-- Keep record field names but do NOT export accessors from this module to avoid clashes.
 data SparqlInput = SparqlInput
   { snapshotName :: Text
   , sortSymbols  :: [Text]
-  , relations    :: [M.RelationInput]
+  , relations    :: [Models.RelationInput]
   } deriving (Show, Eq, Generic, FromJSON, ToJSON, ToSchema)
 
 newtype SnapshotCreated = SnapshotCreated
   { snapshotId :: Text
   } deriving (Show, Eq, Generic, FromJSON, ToJSON, ToSchema)
 
-
 type SnapshotAPI =
        "snapshots" :> ReqBody '[JSON] SparqlInput
                    :> Post '[JSON] SnapshotCreated
   :<|> "snapshots" :> Capture "name" Text
-                   :> Get '[JSON]         M.Snapshot
+                   :> Get   '[JSON] Models.Snapshot
   :<|> "snapshots"
-         :> QueryParam "page"  Page
-         :> QueryParam "limit" Limit
+         :> QueryParam "page"   Page
+         :> QueryParam "limit"  Limit
          :> QueryParam "sortBy" SortBy
          :> QueryParam "order"  SortOrder
          :> QueryParam "q"      Text
-         :> Get '[JSON] [M.Snapshot]
+         :> Get   '[JSON] [Models.Snapshot]
   :<|> "snapshots" :> Capture "name" Text
                    :> "signature"
-                   :> Get '[JSON]         M.Signature
+                   :> Get   '[JSON] Models.Signature
   :<|> "snapshots" :> Verb 'DELETE 204 '[JSON] NoContent
   :<|> "snapshots" :> Capture "name" Text
-                   :> Verb   'DELETE 204 '[JSON] NoContent
-
+                   :> Verb 'DELETE 204 '[JSON] NoContent
 
 type FullAPI = SnapshotAPI
           :<|> "openapi.json" :> Get '[OctetStream] BL.ByteString

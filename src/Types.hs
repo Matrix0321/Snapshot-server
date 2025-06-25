@@ -1,13 +1,29 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
 
-module Types where
+module Types
+  ( Page(..)
+  , Limit(..)
+  , SortBy(..)
+  , SortOrder(..)
+  ) where
 
-import Servant       (FromHttpApiData, parseUrlPiece)
-import Data.Text     (Text)
-import Data.OpenApi  (ToParamSchema)
-import GHC.Generics  (Generic)
+import           Servant       (FromHttpApiData(..))
+import           Data.Text     (Text)
+import qualified Data.Text     as T
+import           Data.OpenApi  (ToParamSchema)
+import           GHC.Generics  (Generic)
+
+-- Helpers
+parsePositiveInt :: Text -> Either String Int
+parsePositiveInt t =
+  case reads (T.unpack t) of
+    [(n, "")] | n > 0 -> Right n
+    _                 -> Left "must be a positive integer"
+
+firstTxt :: Either String a -> Either Text a
+firstTxt = either (Left . T.pack) Right
 
 -- page ----------
 newtype Page = Page Int
@@ -15,11 +31,7 @@ newtype Page = Page Int
 
 instance ToParamSchema Page
 instance FromHttpApiData Page where
-  parseUrlPiece t =
-    case parseUrlPiece t of
-      Left e -> Left e
-      Right n | n > 0     -> Right (Page n)
-              | otherwise -> Left "`page` must be a positive integer"
+  parseUrlPiece t = firstTxt (parsePositiveInt t) >>= (Right . Page)
 
 -- limit ---------
 newtype Limit = Limit Int
@@ -27,11 +39,7 @@ newtype Limit = Limit Int
 
 instance ToParamSchema Limit
 instance FromHttpApiData Limit where
-  parseUrlPiece t =
-    case parseUrlPiece t of
-      Left e -> Left e
-      Right n | n > 0     -> Right (Limit n)
-              | otherwise -> Left "`limit` must be a positive integer"
+  parseUrlPiece t = firstTxt (parsePositiveInt t) >>= (Right . Limit)
 
 -- sortBy --------
 data SortBy = SortByCreatedAt | SortById

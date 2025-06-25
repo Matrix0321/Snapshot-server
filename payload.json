@@ -1,5 +1,0 @@
-{
-    "query": "SELECT ?countryLabel ?capitalLabel WHERE { ?country wdt:P31 wd:Q6256; wdt:P36 ?capital. SERVICE wikibase:label { bd:serviceParam wikibase:language \"en\". } } LIMIT 10",
-    "snapshotName": "CountryCapitals"
-  }
-  

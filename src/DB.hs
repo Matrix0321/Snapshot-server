@@ -7,15 +7,16 @@ module DB
   , deleteAllSnapshots
   ) where
 
-import Database.SQLite.Simple
-import Data.Text (Text)
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString      as BS
-import Data.Aeson   (encode, decode)
-import qualified Models as M
-import qualified Data.Map.Strict ()
-import Control.Monad (forM)
-import Data.Maybe    (fromMaybe)
+import           Database.SQLite.Simple
+import           Data.Text                      (Text)
+import qualified Data.ByteString.Lazy           as BL
+import qualified Data.ByteString                as BS
+import           Data.Aeson                     (encode, eitherDecode)
+import qualified Data.Map.Strict                as Map
+import           Control.Monad                  (forM)
+import           System.IO                      (hPutStrLn, stderr)
+
+import qualified Models                         as Models
 
 initDB :: IO Connection
 initDB = do
@@ -27,23 +28,29 @@ initDB = do
     \ relations  BLOB)"
   pure conn
 
-insertSnapshot :: Connection -> M.Snapshot -> IO ()
-insertSnapshot conn (M.Snapshot sid meta rels) = do
+insertSnapshot :: Connection -> Models.Snapshot -> IO ()
+insertSnapshot conn (Models.Snapshot sid meta rels) = do
   let metaBs = BL.toStrict (encode meta)
       relsBs = BL.toStrict (encode rels)
+      sidTxt = case sid of Models.SnapshotId t -> t
   execute conn
     "INSERT OR REPLACE INTO snapshots (snapshotId, metadata, relations) VALUES (?, ?, ?)"
-    (sid, metaBs, relsBs)
+    (sidTxt, metaBs, relsBs)
 
-getAllSnapshots :: Connection -> IO [M.Snapshot]
+-- We return IO [Snapshot]. On decode failure of a row, we log and skip.
+getAllSnapshots :: Connection -> IO [Models.Snapshot]
 getAllSnapshots conn = do
   rows <- query_ conn
             "SELECT snapshotId, metadata, relations FROM snapshots"
             :: IO [(Text, BS.ByteString, BS.ByteString)]
-  forM rows $ \(sid, mb, rb) -> do
-    let meta = fromMaybe (error "bad meta") (decode $ BL.fromStrict mb)
-        rels = fromMaybe (error "bad rels") (decode $ BL.fromStrict rb)
-    pure (M.Snapshot sid meta rels)
+  fmap concat $ forM rows $ \(sidTxt, mb, rb) -> do
+    let metaE = eitherDecode (BL.fromStrict mb) :: Either String Models.SnapshotMetadata
+        relsE = eitherDecode (BL.fromStrict rb) :: Either String (Map.Map Models.RelationName [Map.Map Models.Variable Text])
+    case (metaE, relsE) of
+      (Right meta, Right rels) ->
+        pure [Models.Snapshot (Models.SnapshotId sidTxt) meta rels]
+      (Left em, _) -> hPutStrLn stderr ("[DB] Failed to decode metadata for " ++ show sidTxt ++ ": " ++ em) >> pure []
+      (_, Left er) -> hPutStrLn stderr ("[DB] Failed to decode relations for " ++ show sidTxt ++ ": " ++ er) >> pure []
 
 deleteAllSnapshots :: Connection -> IO ()
 deleteAllSnapshots conn = execute_ conn "DELETE FROM snapshots"

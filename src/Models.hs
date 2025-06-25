@@ -1,42 +1,51 @@
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Models
-  ( RelationInput(..)
+  ( Sort
+  , RelationName
+  , Variable
+  , RelationInput(..)
   , RelationSignature(..)
   , Signature(..)
+  , SnapshotId(..)
   , SnapshotMetadata(..)
   , Snapshot(..)
   ) where
 
-import GHC.Generics       (Generic)
-import Data.Aeson         (FromJSON, ToJSON)
-import Data.OpenApi       (ToSchema)          
-import Data.Text          (Text)
-import qualified Data.Map.Strict as Map
+import           GHC.Generics         (Generic)
+import           Data.Aeson           (FromJSON, ToJSON)
+import           Data.OpenApi         (ToSchema)
+import           Data.Text            (Text)
+import qualified Data.Map.Strict      as Map
 
--- 请求中用到
+type Sort        = Text
+type RelationName = Text
+type Variable    = Text
+
+newtype SnapshotId = SnapshotId { unSnapshotId :: Text }
+  deriving (Show, Eq, Ord, Generic, FromJSON, ToJSON, ToSchema)
+
 data RelationInput = RelationInput
-  { riRelationName :: Text
-  , riVariables    :: [Text]
+  { riRelationName :: RelationName
+  , riVariables    :: [Variable]
   , riQuery        :: Text
-  , riDomainSort   :: Text
-  , riRangeSort    :: Text
-  } deriving (Show, Eq, Generic, FromJSON, ToJSON, ToSchema) 
+  , riDomainSort   :: Sort
+  , riRangeSort    :: Sort
+  } deriving (Show, Eq, Generic, FromJSON, ToJSON, ToSchema)
 
--- 部分响应结构
 data RelationSignature = RelationSignature
-  { rsRelationName :: Text
-  , rsVariables    :: [Text]
-  , rsDomainSort   :: Text
-  , rsRangeSort    :: Text
-  } deriving (Show, Eq, Generic, FromJSON, ToJSON, ToSchema)  
+  { rsRelationName :: RelationName
+  , rsVariables    :: [Variable]
+  , rsDomainSort   :: Sort
+  , rsRangeSort    :: Sort
+  } deriving (Show, Eq, Generic, FromJSON, ToJSON, ToSchema)
 
 data Signature = Signature
-  { sorts         :: [Text]
+  { sorts         :: [Sort]
   , relSignatures :: [RelationSignature]
-  } deriving (Show, Eq, Generic, FromJSON, ToJSON, ToSchema)  
+  } deriving (Show, Eq, Generic, FromJSON, ToJSON, ToSchema)
 
 data SnapshotMetadata = SnapshotMetadata
   { snapshotName       :: Text
@@ -44,12 +53,12 @@ data SnapshotMetadata = SnapshotMetadata
   , createdAt          :: Text
   , description        :: Text
   , signatureId        :: Text
-  , sortSymbols        :: [Text]
+  , sortSymbols        :: [Sort]
   , relationSignatures :: [RelationSignature]
-  } deriving (Show, Eq, Generic, FromJSON, ToJSON, ToSchema)  
+  } deriving (Show, Eq, Generic, FromJSON, ToJSON, ToSchema)
 
 data Snapshot = Snapshot
-  { snapshotId :: Text
+  { snapshotId :: SnapshotId
   , metadata   :: SnapshotMetadata
-  , relations  :: Map.Map Text [Map.Map Text Text]
-  } deriving (Show, Eq, Generic, FromJSON, ToJSON, ToSchema)  
+  , relations  :: Map.Map RelationName [Map.Map Variable Text]
+  } deriving (Show, Eq, Generic, FromJSON, ToJSON, ToSchema)
