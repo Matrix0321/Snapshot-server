@@ -1,16 +1,16 @@
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE TypeOperators     #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE DataKinds       #-}
+{-# LANGUAGE TypeOperators   #-}
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE DeriveAnyClass  #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module API
   ( API
-  , api 
-  , SnapshotAPI          -- 业务端点
-  , FullAPI              -- = SnapshotAPI + openapi.json
-  , snapshotApi          -- Proxy SnapshotAPI
-  , fullApi              -- Proxy FullAPI
+  , api
+  , SnapshotAPI
+  , FullAPI
+  , snapshotApi
+  , fullApi
   , SparqlInput(..)
   , SnapshotCreated(..)
   ) where
@@ -23,8 +23,9 @@ import Data.Text                (Text)
 import qualified Data.ByteString.Lazy as BL
 import qualified Models         as M
 import Data.OpenApi             (ToSchema)
+import Types
 
--- ====== 请求/响应数据 ======
+
 data SparqlInput = SparqlInput
   { snapshotName :: Text
   , sortSymbols  :: [Text]
@@ -35,20 +36,30 @@ newtype SnapshotCreated = SnapshotCreated
   { snapshotId :: Text
   } deriving (Show, Eq, Generic, FromJSON, ToJSON, ToSchema)
 
--- ====== 业务端点 ======
-type SnapshotAPI =
-       "snapshots" :> ReqBody '[JSON] SparqlInput :> Post '[JSON] SnapshotCreated
-  :<|> "snapshots" :> Capture "name" Text :> Get '[JSON] M.Snapshot
-  :<|> "snapshots" :> Get '[JSON] [M.Snapshot]
-  :<|> "snapshots" :> Capture "name" Text :> "signature" :> Get '[JSON] M.Signature
-  :<|> "snapshots" :> Verb 'DELETE 204 '[JSON] NoContent
-  :<|> "snapshots" :> Capture "name" Text :> Verb 'DELETE 204 '[JSON] NoContent
 
--- ====== 文档端点 ======
+type SnapshotAPI =
+       "snapshots" :> ReqBody '[JSON] SparqlInput
+                   :> Post '[JSON] SnapshotCreated
+  :<|> "snapshots" :> Capture "name" Text
+                   :> Get '[JSON]         M.Snapshot
+  :<|> "snapshots"
+         :> QueryParam "page"  Page
+         :> QueryParam "limit" Limit
+         :> QueryParam "sortBy" SortBy
+         :> QueryParam "order"  SortOrder
+         :> QueryParam "q"      Text
+         :> Get '[JSON] [M.Snapshot]
+  :<|> "snapshots" :> Capture "name" Text
+                   :> "signature"
+                   :> Get '[JSON]         M.Signature
+  :<|> "snapshots" :> Verb 'DELETE 204 '[JSON] NoContent
+  :<|> "snapshots" :> Capture "name" Text
+                   :> Verb   'DELETE 204 '[JSON] NoContent
+
+
 type FullAPI = SnapshotAPI
           :<|> "openapi.json" :> Get '[OctetStream] BL.ByteString
 
--- Proxy helpers
 snapshotApi :: Proxy SnapshotAPI
 snapshotApi = Proxy
 

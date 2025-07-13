@@ -3,7 +3,14 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: sparql-protocol-1.1.0.0@sha256:8e70d44bd191143d0f45aa97d90969123924f3dc973a4f3d54b2973e1b23e44c,1321
+    pantry-tree:
+      sha256: 74d9fe1f583c1e017ec491176a589c2f7348e414ab38521b5cf3e3254e9d803f
+      size: 338
+  original:
+    hackage: sparql-protocol-1.1.0.0@sha256:8e70d44bd191143d0f45aa97d90969123924f3dc973a4f3d54b2973e1b23e44c,1321
 snapshots:
 - completed:
     sha256: 400dfb2174640dd2f9f2ba7cbf9148699f2380ab64faa46f4be298a5d6205316

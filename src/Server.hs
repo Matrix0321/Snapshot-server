@@ -1,89 +1,115 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE TypeOperators     #-}
 
-module Server (server) where
+module Server (server, makeApp) where
 
-import Control.Monad.IO.Class    (liftIO)
-import qualified Data.Text       as T
+import Control.Monad.IO.Class      (liftIO)
+import Data.Maybe                  (fromMaybe)
+import Data.Text                   (Text)
+import qualified Data.Text         as T
+import Data.List                   (sortBy)
+import Data.Ord                    (comparing)
 import qualified Data.ByteString.Lazy.Char8 as BL8
-import qualified Data.ByteString.Lazy       as BL
-import Database.SQLite.Simple    (Connection)
+import qualified Data.ByteString.Lazy        as BL
+import Database.SQLite.Simple      (Connection)
+import Network.Wai                 (Application)
 import Servant
-import Servant.Server ()
-import Servant.OpenApi           (toOpenApi)
-import Data.Aeson                (encode)
+import Servant.OpenApi             (toOpenApi)
+import Data.Aeson                  (encode)
 
-import qualified API
-import qualified Models
-import qualified DB
-import SnapshotGenerator         (generateSnapshot)
+import Validation                  (validateSparqlInput)
+import API                         (API, SnapshotAPI, snapshotApi, api
+                                   , SparqlInput(..), SnapshotCreated(..))
+import qualified Models            as M
+import qualified DB                as DB
+import qualified SnapshotGenerator as SG
+import Types
 
--- 1. 创建 Snapshot：调用 generateSnapshot
-createSnapshotHandler :: Connection -> API.SparqlInput -> Handler API.SnapshotCreated
+-- 1. 创建 Snapshot
+createSnapshotHandler :: Connection -> SparqlInput -> Handler SnapshotCreated
 createSnapshotHandler conn inp = do
-  eres <- liftIO $ generateSnapshot conn inp
+  validateSparqlInput inp
+  eres <- liftIO $ SG.generateSnapshot conn inp
   case eres of
-    Left err ->
-      throwError err500 { errBody = BL8.pack (T.unpack err) }
-    Right (_, created) ->
-      pure created
+    Left err      -> throwError err500 { errBody = BL8.pack (T.unpack err) }
+    Right (_, cr) -> pure cr
 
--- 2. 根据 name 查询 Snapshot
-getSnapshotHandler :: Connection -> T.Text -> Handler Models.Snapshot
-getSnapshotHandler conn n = do
+-- 2. 单条查询
+getSnapshotHandler :: Connection -> Text -> Handler M.Snapshot
+getSnapshotHandler conn name = do
   xs <- liftIO $ DB.getAllSnapshots conn
-  case [ s | s <- xs, Models.snapshotName (Models.metadata s) == n ] of
+  case filter (\s -> M.snapshotName (M.metadata s) == name) xs of
     (s:_) -> pure s
     []    -> throwError err404 { errBody = "Snapshot not found" }
 
--- 3. 列出所有 Snapshots
-listSnapshotsHandler :: Connection -> Handler [Models.Snapshot]
-listSnapshotsHandler = liftIO . DB.getAllSnapshots
+-- 3. 列表（分页 / 过滤 / 排序）
+getSnapshotsHandler
+  :: Connection
+  -> Maybe Page   -> Maybe Limit
+  -> Maybe SortBy -> Maybe SortOrder
+  -> Maybe Text   -> Handler [M.Snapshot]
+getSnapshotsHandler conn mP mL mS mO mQ = do
+  allSnaps <- liftIO $ DB.getAllSnapshots conn
+  let filtered = case mQ of
+        Just q  -> filter (\s -> q `T.isInfixOf` M.snapshotName (M.metadata s))
+                          allSnaps
+        Nothing -> allSnaps
+      cmp = case mS of
+        Just SortByCreatedAt -> comparing (M.createdAt . M.metadata)
+        Just SortById        -> comparing M.snapshotId
+        _                    -> comparing (M.createdAt . M.metadata)
+      sorted = case mO of
+        Just Asc -> sortBy cmp filtered
+        _        -> sortBy (flip cmp) filtered
+      Page p  = fromMaybe (Page 1 ) mP
+      Limit l = fromMaybe (Limit 20) mL
+      start   = (p - 1) * l
+      paged   = take l . drop start $ sorted
+  pure paged
 
--- 4. 获取 Snapshot 的 signature
-getSignatureHandler :: Connection -> T.Text -> Handler Models.Signature
-getSignatureHandler conn n = do
+-- 4. 获取签名
+getSignatureHandler :: Connection -> Text -> Handler M.Signature
+getSignatureHandler conn name = do
   xs <- liftIO $ DB.getAllSnapshots conn
-  case [ Models.metadata s
-       | s <- xs
-       , Models.snapshotName (Models.metadata s) == n
-       ] of
+  case [ M.metadata s | s <- xs
+                      , M.snapshotName (M.metadata s) == name ] of
     (meta:_) ->
-      pure (Models.Signature (Models.sortSymbols meta)
-                             (Models.relationSignatures meta))
-    [] ->
-      throwError err404 { errBody = "Signature not found" }
+      pure $ M.Signature
+        (M.sortSymbols meta)
+        (M.relationSignatures meta)
+    []       -> throwError err404 { errBody = "Signature not found" }
 
--- 5. 删除所有 Snapshots
+-- 5. 删除所有
 deleteAllSnapshotsHandler :: Connection -> Handler NoContent
 deleteAllSnapshotsHandler conn =
   liftIO (DB.deleteAllSnapshots conn) >> pure NoContent
 
--- 6. 删除指定 name 的 Snapshot
-deleteSnapshotHandler :: Connection -> T.Text -> Handler NoContent
-deleteSnapshotHandler conn n = do
+-- 6. 删除单条
+deleteSnapshotHandler :: Connection -> Text -> Handler NoContent
+deleteSnapshotHandler conn name = do
   xs <- liftIO $ DB.getAllSnapshots conn
-  liftIO $ do
-    DB.deleteAllSnapshots conn
-    mapM_ (DB.insertSnapshot conn)
-          [ s | s <- xs
-              , Models.snapshotName (Models.metadata s) /= n
-          ]
+  let remaining = filter (\s -> M.snapshotName (M.metadata s) /= name) xs
+  liftIO $ DB.deleteAllSnapshots conn >> mapM_ (DB.insertSnapshot conn) remaining
   pure NoContent
 
--- 7. 返回 OpenAPI 文档
+-- 7. OpenAPI 文档
 openApiHandler :: Handler BL.ByteString
-openApiHandler = pure $ encode (toOpenApi API.snapshotApi)
+openApiHandler = pure $ encode (toOpenApi snapshotApi)
 
--- 组合所有处理函数
-server :: Connection -> Server API.FullAPI
-server conn = snapshotServer conn :<|> openApiHandler
-snapshotServer :: Connection -> Server API.SnapshotAPI
+-- 8. 组合并导出
+snapshotServer :: Connection -> Server SnapshotAPI
 snapshotServer conn =
        createSnapshotHandler     conn
   :<|> getSnapshotHandler        conn
-  :<|> listSnapshotsHandler      conn
+  :<|> getSnapshotsHandler       conn
   :<|> getSignatureHandler       conn
   :<|> deleteAllSnapshotsHandler conn
-  :<|> deleteSnapshotHandler     conn   
+  :<|> deleteSnapshotHandler     conn
+
+server :: Connection -> Server API
+server conn = snapshotServer conn :<|> openApiHandler
+
+-- 9. Application 供外部（测试等）直接使用
+makeApp :: Connection -> Application
+makeApp conn = serve api (server conn)

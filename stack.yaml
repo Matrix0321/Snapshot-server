@@ -35,8 +35,9 @@ packages:
 # These entries can reference officially published versions as well as
 # forks / in-progress versions pinned to a git hash. For example:
 #
-# extra-deps:
-# - acme-missiles-0.3
+extra-deps:
+  - sparql-protocol-1.1.0.0@sha256:8e70d44bd191143d0f45aa97d90969123924f3dc973a4f3d54b2973e1b23e44c,1321
+
 # - git: https://github.com/commercialhaskell/stack.git
 #   commit: e7b331f14bcffb8367cd58fbfc8b40ec7642100a
 #

@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- src/SnapshotGenerator.hs
 module SnapshotGenerator
   ( generateSnapshot
   ) where
@@ -13,9 +14,15 @@ import qualified Data.Text           as T
 import qualified Data.Map.Strict     as Map
 import qualified Data.ByteString.Lazy.Char8 as BL8
 
+-- 导入 Response 及它的 responseBody 字段访问器
 import Network.HTTP.Client    (Response, responseBody)
+
+-- 从 sparql-protocol 包里导入 select
 import Database.SPARQL.Protocol.Client
-  ( select, SelectResult(..), RDFTerm(..) )
+  ( select
+  , SelectResult(..)
+  , RDFTerm(..)
+  )
 import Database.SQLite.Simple (Connection)
 
 import qualified DB
@@ -52,6 +59,7 @@ generateSnapshot conn (API.SparqlInput name sortSyms relInputs) = do
         rng     = Models.riRangeSort ri
         vars    = Models.riVariables ri
 
+    -- 用 select 发起查询
     eres <- try (select endpoint (BL8.pack $ T.unpack q))
              :: IO (Either SomeException (Response SelectResult))
 

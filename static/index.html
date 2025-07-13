@@ -2,121 +2,186 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Snapshots</title>
+  <title>Snapshots UI</title>
   <style>
     body { font-family: sans-serif; margin: 2em; }
+    form { border: 1px solid #ccc; padding: 1em; margin-bottom: 2em; }
+    label { display: block; margin: .5em 0; }
+    input, textarea { width: 100%; padding: .5em; }
+    button { padding: .5em 1em; margin-top: .5em; }
     ul { list-style: none; padding: 0; }
-    li a { text-decoration: none; color: #007bff; cursor: pointer; }
-    li a:hover { text-decoration: underline; }
+    ul li a { cursor: pointer; color: #007bff; text-decoration: none; }
+    ul li a:hover { text-decoration: underline; }
     table { border-collapse: collapse; margin-top: 1em; width: 100%; }
-    th, td { border: 1px solid #ccc; padding: 0.5em 1em; }
+    th, td { border: 1px solid #ccc; padding: 0.5em; }
     th { background: #f0f0f0; }
-    h3 { margin-bottom: 0.2em; }
-    td a { color: #1a0dab; text-decoration: none; }
-    td a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-  <h1>Available Snapshots</h1>
-  <ul id="list"></ul>
+  <h1>Snapshot Browser</h1>
+
+  <!-- 创建表单 -->
+  <form id="create-form">
+    <h2>Create Snapshot</h2>
+    <label>Snapshot name:
+      <input type="text" id="snapshotName" required />
+    </label>
+    <label>Sort symbols (comma-separated):
+      <input type="text" id="sortSymbols" placeholder="e.g. country,capital,language" required />
+    </label>
+    <label>Relation name:
+      <input type="text" id="relationName" placeholder="e.g. country-capital-language" required />
+    </label>
+    <label>Variables (comma-separated):
+      <input type="text" id="variables" placeholder="e.g. Country,Capital,Language" required />
+    </label>
+    <label>Domain sort:
+      <input type="text" id="domainSort" required />
+    </label>
+    <label>Range sort:
+      <input type="text" id="rangeSort" required />
+    </label>
+    <label>SPARQL query:
+      <textarea id="sparqlQuery" rows="5"
+        placeholder="e.g. SELECT ?Country ?Capital WHERE { ?Country wdt:P36 ?Capital . } LIMIT 10"
+        required></textarea>
+    </label>
+    <button type="submit">Create</button>
+    <div id="create-result" style="margin-top:1em;color:green;"></div>
+  </form>
+
+  <!-- 快速查询已有 Snapshots -->
+  <h2>Available Snapshots</h2>
+  <ul id="snapshot-list"></ul>
   <div id="details"></div>
 
   <script>
+    // Helper: fetch JSON or throw
+    async function fetchJSON(url, opts) {
+      const res = await fetch(url, opts);
+      if (!res.ok) throw new Error(res.statusText);
+      return res.json();
+    }
+
+    // Load and render the snapshot list
     async function loadList() {
       try {
-        const res = await fetch('/snapshots');
-        const arr = await res.json();
-        const ul = document.getElementById('list');
+        const snaps = await fetchJSON('/snapshots');
+        const ul = document.getElementById('snapshot-list');
         ul.innerHTML = '';
-        arr.forEach(s => {
+        snaps.forEach(s => {
           const li = document.createElement('li');
-          const a = document.createElement('a');
+          const a  = document.createElement('a');
           a.textContent = s.metadata.snapshotName;
-          a.href = '#';
-          a.onclick = async (e) => {
-            e.preventDefault();
-            await loadDetails(s.metadata.snapshotName);
-          };
+          a.onclick = () => loadDetails(s.metadata.snapshotName);
           li.appendChild(a);
           ul.appendChild(li);
         });
-      } catch (err) {
-        console.error(err);
+      } catch (e) {
+        console.error(e);
       }
     }
 
+    // Load and render a single snapshot's relations table
     async function loadDetails(name) {
       try {
-        const res = await fetch('/snapshots/' + encodeURIComponent(name));
-        if (!res.ok) throw new Error(res.statusText);
-        const data = await res.json();
-        showDetails(data);
-      } catch (err) {
-        console.error(err);
+        const data = await fetchJSON('/snapshots/' + encodeURIComponent(name));
+        const div  = document.getElementById('details');
+        div.innerHTML = `<h3>Relations for ${data.metadata.snapshotName}</h3>`;
+        Object.entries(data.relations).forEach(([relName, facts]) => {
+          // Title for each relation if multiple
+          if (Object.keys(data.relations).length > 1) {
+            const h = document.createElement('h4');
+            h.textContent = relName;
+            div.appendChild(h);
+          }
+          if (!facts.length) {
+            div.appendChild(document.createTextNode('No data.'));
+            return;
+          }
+          // Table
+          const cols = Object.keys(facts[0]);
+          const tbl  = document.createElement('table');
+          // Header
+          const thead = document.createElement('thead');
+          const thr   = document.createElement('tr');
+          cols.forEach(c => {
+            const th = document.createElement('th');
+            th.textContent = c;
+            thr.appendChild(th);
+          });
+          thead.appendChild(thr);
+          tbl.appendChild(thead);
+          // Body
+          const tb = document.createElement('tbody');
+          facts.forEach(row => {
+            const tr = document.createElement('tr');
+            cols.forEach(c => {
+              const td = document.createElement('td');
+              const v  = row[c] || '';
+              if (typeof v === 'string' && v.startsWith('http')) {
+                const a = document.createElement('a');
+                a.href   = v;
+                a.target = '_blank';
+                a.textContent = v;
+                td.appendChild(a);
+              } else {
+                td.textContent = v;
+              }
+              tr.appendChild(td);
+            });
+            tb.appendChild(tr);
+          });
+          tbl.appendChild(tb);
+          div.appendChild(tbl);
+        });
+      } catch (e) {
+        console.error(e);
         document.getElementById('details').textContent = 'Error loading details.';
       }
     }
 
-    function showDetails(data) {
-      const div = document.getElementById('details');
-      div.innerHTML = '<h2>Relations for ' + data.metadata.snapshotName + '</h2>';
+    // Handle create-form submission
+    document.getElementById('create-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const name       = document.getElementById('snapshotName').value.trim();
+      const sortSyms   = document.getElementById('sortSymbols').value.split(',').map(s=>s.trim());
+      const relName    = document.getElementById('relationName').value.trim();
+      const vars       = document.getElementById('variables').value.split(',').map(s=>s.trim());
+      const dom        = document.getElementById('domainSort').value.trim();
+      const rng        = document.getElementById('rangeSort').value.trim();
+      const query      = document.getElementById('sparqlQuery').value.trim();
 
-      const relationEntries = Object.entries(data.relations);
-      const showRelationTitle = relationEntries.length > 1;
+      const payload = {
+        snapshotName: name,
+        sortSymbols:  sortSyms,
+        relations: [{
+          riRelationName: relName,
+          riVariables:    vars,
+          riQuery:        query,
+          riDomainSort:   dom,
+          riRangeSort:    rng
+        }]
+      };
 
-      relationEntries.forEach(([relName, facts]) => {
-        if (showRelationTitle) {
-          const title = document.createElement('h3');
-          title.textContent = 'Relation: ' + relName;
-          div.appendChild(title);
-        }
 
-        if (!facts || facts.length === 0) {
-          const emptyMsg = document.createElement('p');
-          emptyMsg.textContent = 'No data.';
-          div.appendChild(emptyMsg);
-          return;
-        }
-
-        const columns = Object.keys(facts[0]);
-
-        const table = document.createElement('table');
-
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        columns.forEach(col => {
-          const th = document.createElement('th');
-          th.textContent = col;
-          headerRow.appendChild(th);
+      try {
+        const result = await fetchJSON('/snapshots', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
         });
-        thead.appendChild(headerRow);
-        table.appendChild(thead);
+        document.getElementById('create-result').textContent =
+          `✅ Created: ${result.snapshotId}`;
+        loadList();
+      } catch (err) {
+        document.getElementById('create-result').style.color = 'red';
+        document.getElementById('create-result').textContent =
+          '❌ Create failed: ' + err.message;
+      }
+    });
 
-        const tbody = document.createElement('tbody');
-        facts.forEach(item => {
-          const tr = document.createElement('tr');
-          columns.forEach(col => {
-            const td = document.createElement('td');
-            const val = item[col] || '';
-            if (typeof val === 'string' && val.startsWith('http')) {
-              const a = document.createElement('a');
-              a.href = val;
-              a.target = '_blank';
-              a.textContent = val;
-              td.appendChild(a);
-            } else {
-              td.textContent = val;
-            }
-            tr.appendChild(td);
-          });
-          tbody.appendChild(tr);
-        });
-        table.appendChild(tbody);
-
-        div.appendChild(table);
-      });
-    }
-
+    // 初始载入
     loadList();
   </script>
 </body>
