@@ -3,7 +3,7 @@ import Test.Hspec
 import Network.Wai (Application)
 import Network.Wai.Test (runSession, request, defaultRequest, setPath)
 import Network.HTTP.Types (status200)
-import qualified Main (app)  -- 需要在 Main.hs 导出 app :: Connection -> Application
+import qualified Main (app) 
 import DB (initDB)
 
 data TestEnv = TestEnv { conn :: DB.Connection, app :: Application }
