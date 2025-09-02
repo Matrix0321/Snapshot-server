@@ -92,7 +92,7 @@ stack run
 
 The server will start on:
 - API: http://localhost:8080
-- UI: http://localhost:8081
+- UI: http://localhost:8080/index.html
 
 ### 2. Run Example Requests
 
