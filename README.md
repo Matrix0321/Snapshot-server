@@ -131,6 +131,7 @@ This script will:
   ]
 }
 ```
+Note: Although JSON encodes relations as arrays for compatibility with web clients, internally they are interpreted as sets (order immaterial, no duplicates).
 
 ## Command-Line Interface (CLI) Usage
 Besides the HTTP server, a CLI tool is also provided.
@@ -139,8 +140,11 @@ Besides the HTTP server, a CLI tool is also provided.
 # Start CLI
 stack exec snapshot-server-cli
 
-# List all snapshots
+# List snapshot names (for use with `get`)
 stack exec snapshot-server-cli list
+
+# Get one snapshot with pretty JSON
+stack exec snapshot-server-cli get CountryCapitals
 
 # Create snapshot from a JSON file
 stack exec snapshot-server-cli create examples/sampleInput.json
