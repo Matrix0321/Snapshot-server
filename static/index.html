@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Snapshot Browser</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <style>
+    :root { --bg:#0b0c10; --card:#111318; --muted:#9aa4b2; --text:#e8edf2; --accent:#6ea8fe; --stroke:#1e232b; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; background:var(--bg); color:var(--text); }
+    header { padding:28px 28px 10px; position:sticky; top:0; background:linear-gradient(180deg, rgba(11,12,16,.95), rgba(11,12,16,.75) 70%, rgba(11,12,16,0)); backdrop-filter:saturate(1.1) blur(6px); z-index:5; border-bottom:1px solid transparent; }
+    header h1 { margin:0 0 6px; font-size:28px; }
+    header p { margin:0; color:var(--muted); }
+    .wrap { max-width:1200px; margin:0 auto; padding:20px; }
+    .grid { display:grid; grid-template-columns: 1.1fr 1fr; gap:18px; }
+    .card { background:var(--card); border:1px solid var(--stroke); border-radius:16px; box-shadow: 0 5px 20px rgba(0,0,0,.25); }
+    .card h2 { margin:0; padding:16px 18px; font-size:18px; border-bottom:1px solid var(--stroke); }
+    .card .body { padding:18px; }
+    label { display:block; font-size:12px; letter-spacing:.03em; color:var(--muted); margin:14px 0 6px; }
+    input[type="text"], textarea { width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--stroke); background:#0f1217; color:var(--text); outline:none; }
+    textarea { min-height:140px; resize:vertical; }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    button { appearance:none; border:1px solid var(--stroke); background:#151922; color:var(--text); padding:10px 14px; border-radius:12px; cursor:pointer; }
+    button.primary { background:linear-gradient(180deg, #2b6fff, #2358d7); border-color:#204fbf; }
+    button.ghost { background:transparent; }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    .toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .toolbar .spacer { flex:1; }
+    table { width:100%; border-collapse:separate; border-spacing:0; }
+    th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--stroke); font-size:14px; vertical-align:top; }
+    th { color:var(--muted); font-weight:600; user-select:none; }
+    tr:hover td { background:#121723; }
+    th.sortable { cursor:pointer; }
+    .pill { display:inline-flex; gap:8px; align-items:center; padding:6px 9px; border:1px solid var(--stroke); border-radius:999px; font-size:12px; color:var(--muted); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .muted { color:var(--muted); }
+    .hint { font-size:12px; color:var(--muted); margin-top:6px; }
+    .danger { color:#ff6464; }
+    .toast { position:fixed; right:16px; bottom:16px; padding:12px 14px; border-radius:12px; background:#101522; border:1px solid var(--stroke); box-shadow:0 10px 30px rgba(0,0,0,.35); display:none; }
+    .json { white-space:pre; overflow:auto; font-size:12px; background:#0e1218; border:1px solid var(--stroke); border-radius:12px; padding:12px; line-height:1.45; }
+    .sr { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    details.inline > summary { cursor:pointer; list-style:none; color:var(--muted); }
+    .badge { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--stroke); font-size:11px; color:var(--muted); }
+    .rel-list { display:flex; flex-wrap:wrap; gap:6px; }
+    .kvs { display:grid; grid-template-columns:max-content 1fr; gap:4px 10px; font-size:13px; }
+    code.k { color:#86a7ff; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Snapshot Browser</h1>
+  <p>Create, list, and inspect many-sorted relation snapshots. (UI pretty-prints; API stays compact.)</p>
+</header>
+
+<div class="wrap grid">
+  <section class="card">
+    <h2>Create Snapshot</h2>
+    <div class="body">
+      <form id="createForm">
+        <label for="snapName">Snapshot name</label>
+        <input id="snapName" type="text" placeholder="CountryCapitals"/>
+
+        <label for="sorts">Sort symbols (comma-separated)</label>
+        <input id="sorts" type="text" placeholder="Country,City"/>
+
+        <div class="row">
+          <div>
+            <label for="relName">Relation name</label>
+            <input id="relName" type="text" placeholder="country_capital"/>
+          </div>
+          <div>
+            <label for="vars">Variables (comma-separated)</label>
+            <input id="vars" type="text" placeholder="countryLabel,capitalLabel"/>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="dom">Domain sort</label>
+            <input id="dom" type="text" placeholder="Country"/>
+          </div>
+          <div>
+            <label for="rng">Range sort</label>
+            <input id="rng" type="text" placeholder="City"/>
+          </div>
+        </div>
+
+        <label for="sparql">SPARQL query</label>
+        <textarea id="sparql" spellcheck="false" class="mono" placeholder="SELECT ?countryLabel ?capitalLabel WHERE { ... } LIMIT 10"></textarea>
+
+        <div class="toolbar" style="margin-top:14px">
+          <button type="submit" class="primary" id="btnCreate">Create</button>
+          <button type="button" id="btnFill" class="ghost">Fill example</button>
+          <span class="spacer"></span>
+          <span class="pill">POST /createSnapshotFromQuery</span>
+        </div>
+        <p class="hint">The payload uses a single relation; add more via API if needed.</p>
+      </form>
+
+      <details id="createOut" style="margin-top:14px;">
+        <summary>Last response</summary>
+        <div class="toolbar" style="margin:8px 0 6px">
+          <button class="ghost" id="copyCreate">Copy</button>
+          <button class="ghost" id="toggleCreate">Compact</button>
+        </div>
+        <pre class="json" id="createJson">—</pre>
+      </details>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Snapshots</h2>
+    <div class="body">
+      <div class="toolbar" style="margin-bottom:10px">
+        <input id="search" type="text" placeholder="Search by snapshot name…" style="flex:1"/>
+        <select id="sortBy">
+          <option value="created_at" selected>Sort by created_at</option>
+          <option value="id">Sort by id</option>
+        </select>
+        <select id="order">
+          <option value="DESC" selected>DESC</option>
+          <option value="ASC">ASC</option>
+        </select>
+        <select id="limit">
+          <option>5</option><option selected>10</option><option>20</option><option>50</option>
+        </select>
+        <button id="refresh">Refresh</button>
+        <button id="copyNames" class="ghost">Copy names</button>
+      </div>
+
+      <table id="table">
+        <thead>
+          <tr>
+            <th class="sortable" data-k="name">Name</th>
+            <th>Sorts</th>
+            <th>Relations</th>
+            <th class="sortable" data-k="created">Created</th>
+            <th style="width:260px">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="rows"><tr><td colspan="5" class="muted">No data yet.</td></tr></tbody>
+      </table>
+
+      <div class="toolbar" style="margin-top:10px">
+        <button id="prev">Prev</button>
+        <button id="next">Next</button>
+        <span class="muted" id="pageInfo"></span>
+        <span class="spacer"></span>
+        <span class="pill">GET /snapshots</span>
+      </div>
+
+      <details id="inspect" style="margin-top:12px;">
+        <summary>Inspect</summary>
+        <div class="toolbar" style="margin:8px 0 6px">
+          <button class="ghost" id="copyInspect">Copy JSON</button>
+          <button class="ghost" id="toggleInspect">Compact</button>
+          <button class="ghost" id="dlInspect">Download</button>
+        </div>
+        <div class="kvs" id="inspectSummary"></div>
+        <details class="inline" id="relSummary" style="margin:10px 0 4px"><summary>Relation summary</summary><div id="relBadges" class="rel-list"></div></details>
+        <pre class="json" id="inspectJson">—</pre>
+      </details>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const toast = (msg, ms=2200) => {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.style.display = 'block';
+    clearTimeout(el._t);
+    el._t = setTimeout(()=> el.style.display='none', ms);
+  };
+
+  const $ = id => document.getElementById(id);
+  const state = { page:1, lastInspect: null, prettyInspect: true, prettyCreate: true };
+
+  const pretty = (txt, enable=true) => {
+    try {
+      const v = JSON.parse(txt);
+      return enable ? JSON.stringify(v, null, 2) : JSON.stringify(v);
+    } catch { return txt; }
+  };
+
+  async function createSnapshot(e) {
+    e.preventDefault();
+    const name = $('snapName').value.trim();
+    const sorts = $('sorts').value.split(',').map(s => s.trim()).filter(Boolean);
+    const relName = $('relName').value.trim();
+    const vars = $('vars').value.split(',').map(s => s.trim()).filter(Boolean);
+    const dom = $('dom').value.trim();
+    const rng = $('rng').value.trim();
+    const q = $('sparql').value;
+
+    if (!name || !sorts.length || !relName || !vars.length || !dom || !rng || !q) {
+      toast('Please complete all fields.');
+      return;
+    }
+
+    const payload = {
+      snapshotName: name,
+      sortSymbols: sorts,
+      relations: [{
+        riRelationName: relName,
+        riVariables: vars,
+        riQuery: q,
+        riDomainSort: dom,
+        riRangeSort: rng
+      }]
+    };
+
+    $('btnCreate').disabled = true;
+    try {
+      const res = await fetch('/createSnapshotFromQuery', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const body = await res.text();
+      $('createJson').textContent = pretty(body, state.prettyCreate) || '(empty)';
+      $('createOut').open = true;
+      if (res.ok) {
+        toast('Snapshot created');
+        await loadList();
+      } else {
+        toast('Create failed');
+      }
+    } catch (err) {
+      $('createJson').textContent = String(err);
+      toast('Network error');
+    } finally {
+      $('btnCreate').disabled = false;
+    }
+  }
+
+  async function loadList() {
+    const q = $('search').value.trim();
+    const sortBy = $('sortBy').value;
+    aconst = 0; // noop line to avoid accidental minifier bug in some envs
+    const order = $('order').value;
+    const limit = parseInt($('limit').value,10);
+    const page = state.page;
+
+    const url = new URL('/snapshots', window.location.origin);
+    url.searchParams.set('page', page);
+    url.searchParams.set('limit', limit);
+    url.searchParams.set('sortBy', sortBy);
+    url.searchParams.set('order', order);
+    if (q) url.searchParams.set('q', q);
+
+    const res = await fetch(url.toString());
+    const arr = res.ok ? await res.json() : [];
+    renderRows(arr);
+    $('pageInfo').textContent = `Page ${page} • ${arr.length} item(s)`;
+  }
+
+  function renderRows(list) {
+    const tbody = $('rows');
+    tbody.innerHTML = '';
+    if (!list.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="muted">No results.</td></tr>`;
+      return;
+    }
+    for (const s of list) {
+      const name = s.metadata?.snapshotName || '(unknown)';
+      const sorts = (s.metadata?.sortSymbols || []).join(', ');
+      const rels = (s.metadata?.relationSignatures || []).map(r => r.rsRelationName).join(', ');
+      const createdAt = s.metadata?.createdAt || '';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="mono"><button class="ghost" data-act="copyName" data-name="${enc(name)}" title="Copy name">📋</button> <a href="#" data-act="view" data-name="${enc(name)}">${esc(name)}</a></td>
+        <td>${esc(sorts)}</td>
+        <td>${esc(rels)}</td>
+        <td><span class="muted mono">${esc(createdAt)}</span></td>
+        <td>
+          <div class="toolbar">
+            <button data-act="view" data-name="${enc(name)}">View</button>
+            <button data-act="sig" data-name="${enc(name)}">Signature</button>
+            <button data-act="dl"  data-name="${enc(name)}">Download</button>
+            <button data-act="del" data-name="${enc(name)}" class="danger">Delete</button>
+          </div>
+        </td>`;
+      tbody.appendChild(tr);
+    }
+    tbody.onclick = handleTableClick;
+  }
+
+  async function handleTableClick(ev) {
+    const btn = ev.target.closest('button, a');
+    if (!btn) return;
+    const act = btn.dataset.act;
+    const name = dec(btn.dataset.name);
+    ev.preventDefault();
+    if (act === 'view') {
+      const res = await fetch(`/snapshots/${encodeURIComponent(name)}`);
+      const txt = await res.text();
+      state.lastInspect = txt;
+      $('inspectJson').textContent = pretty(txt, state.prettyInspect);
+      renderInspectSummary(txt);
+      $('inspect').open = true;
+    } else if (act === 'sig') {
+      const res = await fetch(`/snapshots/${encodeURIComponent(name)}/signature`);
+      const txt = await res.text();
+      state.lastInspect = txt;
+      $('inspectJson').textContent = pretty(txt, state.prettyInspect);
+      renderInspectSummary(null);
+      $('inspect').open = true;
+    } else if (act === 'del') {
+      if (!confirm(`Delete snapshot "${name}"?`)) return;
+      const res = await fetch(`/snapshots/${encodeURIComponent(name)}`, { method:'DELETE' });
+      if (res.ok) { toast('Deleted'); loadList(); } else { toast('Delete failed'); }
+    } else if (act === 'dl') {
+      downloadSnapshot(name);
+    } else if (act === 'copyName') {
+      await navigator.clipboard.writeText(name);
+      toast('Name copied');
+    }
+  }
+
+  function renderInspectSummary() {
+    const box = $('inspectSummary');
+    const relWrap = $('relBadges');
+    box.innerHTML = '';
+    relWrap.innerHTML = '';
+    if (!state.lastInspect) return;
+    try {
+      const v = JSON.parse(state.lastInspect);
+      if (v?.metadata) {
+        const meta = v.metadata;
+        addKV('Name', meta.snapshotName);
+        addKV('Created', meta.createdAt);
+        addKV('Author', meta.author);
+        if (meta.sortSymbols?.length) addKV('Sorts', meta.sortSymbols.join(', '));
+        if (meta.description) addKV('Description', meta.description);
+      }
+      if (v?.relations) {
+        const relNames = Object.keys(v.relations).sort();
+        for (const r of relNames) {
+          const sz = Array.isArray(v.relations[r]) ? v.relations[r].length : 0;
+          const el = document.createElement('span');
+          el.className = 'badge';
+          el.textContent = `${r} • ${sz}`;
+          relWrap.appendChild(el);
+        }
+      }
+    } catch {/* ignore */}
+    function addKV(k, v) {
+      const kEl = document.createElement('div'); kEl.innerHTML = `<code class="k">${esc(k)}</code>`;
+      const vEl = document.createElement('div'); vEl.textContent = v;
+      box.appendChild(kEl); box.appendChild(vEl);
+    }
+  }
+
+  function downloadSnapshot(name) {
+    fetch(`/snapshots/${encodeURIComponent(name)}`).then(r=>r.text()).then(txt=>{
+      const blob = new Blob([txt], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${name}.json`;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+    });
+  }
+
+  function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#039;'}[c])); }
+  const enc = encodeURIComponent; const dec = decodeURIComponent;
+
+  function fillExample() {
+    $('snapName').value = 'CountryCapitals';
+    $('sorts').value = 'Country,City';
+    $('relName').value = 'country_capital';
+    $('vars').value = 'countryLabel,capitalLabel';
+    $('dom').value = 'Country';
+    $('rng').value = 'City';
+    $('sparql').value = `SELECT ?countryLabel ?capitalLabel WHERE {\n  ?country wdt:P31 wd:Q6256;\n           wdt:P36 ?capital.\n  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }\n} LIMIT 5`;
+  }
+
+  // Events
+  $('createForm').addEventListener('submit', createSnapshot);
+  $('refresh').addEventListener('click', () => { state.page=1; loadList(); });
+  $('prev').addEventListener('click', () => { state.page=Math.max(1, state.page-1); loadList(); });
+  $('next').addEventListener('click', () => { state.page+=1; loadList(); });
+  $('search').addEventListener('keydown', e => { if (e.key === 'Enter') { state.page=1; loadList(); }});
+  $('sortBy').addEventListener('change', () => { state.page=1; loadList(); });
+  $('order').addEventListener('change', () => { state.page=1; loadList(); });
+  $('limit').addEventListener('change', () => { state.page=1; loadList(); });
+  $('btnFill').addEventListener('click', fillExample);
+  $('copyNames').addEventListener('click', async () => {
+    const names = Array.from(document.querySelectorAll('#rows td:first-child a'))
+      .map(a => a.textContent.trim())
+      .filter(Boolean);
+    await navigator.clipboard.writeText(names.join('\n'));
+    toast('Names copied');
+  });
+
+  // Pretty/compact toggles + copy
+  $('toggleInspect').addEventListener('click', () => {
+    state.prettyInspect = !state.prettyInspect;
+    $('toggleInspect').textContent = state.prettyInspect ? 'Compact' : 'Pretty';
+    if (state.lastInspect) $('inspectJson').textContent = pretty(state.lastInspect, state.prettyInspect);
+  });
+  $('copyInspect').addEventListener('click', async () => {
+    const txt = $('inspectJson').textContent; await navigator.clipboard.writeText(txt); toast('Copied');
+  });
+  $('dlInspect').addEventListener('click', () => {
+    try {
+      const v = JSON.parse(state.lastInspect || '{}');
+      const name = v?.metadata?.snapshotName || 'snapshot';
+      const blob = new Blob([$('inspectJson').textContent], {type:'application/json'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${name}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+    } catch {}
+  });
+
+  $('toggleCreate').addEventListener('click', () => {
+    state.prettyCreate = !state.prettyCreate;
+    $('toggleCreate').textContent = state.prettyCreate ? 'Compact' : 'Pretty';
+    $('createJson').textContent = pretty($('createJson').textContent, state.prettyCreate);
+  });
+  $('copyCreate').addEventListener('click', async () => {
+    await navigator.clipboard.writeText($('createJson').textContent); toast('Copied');
+  });
+
+  // Table header click -> change server-side sort
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const k = th.dataset.k;
+      if (k === 'name') { $('sortBy').value = 'id'; }
+      if (k === 'created') { $('sortBy').value = 'created_at'; }
+      $('order').value = $('order').value === 'ASC' ? 'DESC' : 'ASC';
+      state.page = 1; loadList();
+    });
+  });
+
+  fillExample();
+  loadList();
+</script>
+</body>
+</html>

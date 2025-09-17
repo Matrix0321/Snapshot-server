@@ -1,0 +1,35 @@
+{
+  "snapshotName": "CountryCapitals",
+  "sortSymbols": ["countryLabel"],
+  "relations": [
+    {
+      "name": "capitalOf",
+      "attributes": {
+        "countryLabel": "Canada",
+        "capitalLabel": "Ottawa"
+      }
+    },
+    {
+      "name": "capitalOf",
+      "attributes": {
+        "countryLabel": "France",
+        "capitalLabel": "Paris"
+      }
+    },
+    {
+      "name": "capitalOf",
+      "attributes": {
+        "countryLabel": "Japan",
+        "capitalLabel": "Tokyo"
+      }
+    },
+    {
+      "name": "capitalOf",
+      "attributes": {
+        "countryLabel": "Brazil",
+        "capitalLabel": "Brasília"
+      }
+    }
+  ]
+}
+
