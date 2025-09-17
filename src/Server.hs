@@ -103,14 +103,12 @@ snapshotServer conn =
   :<|> deleteAllSnapshotsHandler conn
   :<|> deleteSnapshotHandler     conn
 
--- Full API (business + OpenAPI doc)
+
 server :: Connection -> Server API
 server conn = snapshotServer conn :<|> openApiHandler
 
--- Build WAI application for Main.hs
 makeApp :: Connection -> Application
 makeApp conn = serve api (server conn)
 
--- Back-compat
 app :: Connection -> Application
 app = makeApp
