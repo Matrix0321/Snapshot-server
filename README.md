@@ -32,7 +32,7 @@ It allows administrators to create **many-sorted relation snapshots** from Wikid
 - Serve stored snapshots via REST API
 - Inspect **snapshot signatures** (sorts and relations)
 - CLI interface for quick interaction
-- Minimal static web UI (served from `/static`)
+- Minimal static web UI (served from `/static`), supporting create, browse, inspect, download, and delete
 
 ---
 
