@@ -19,14 +19,14 @@ import           Database.SQLite.Simple
 
 import qualified Models
 
--- Open DB & ensure schema
+
 initDB :: FilePath -> IO Connection
 initDB fp = do
   conn <- open fp
   createTable conn
   pure conn
 
--- snapshotId TEXT PK, metadata JSON, relations JSON
+
 createTable :: Connection -> IO ()
 createTable conn = do
   execute_ conn $
@@ -37,7 +37,7 @@ createTable conn = do
     \)"
   pure ()
 
--- upsert by PK
+
 insertSnapshot :: Connection -> Models.Snapshot -> IO ()
 insertSnapshot conn snap = withTransaction conn $ do
   let sid  = Models.unSnapshotId (Models.snapshotId snap)
@@ -49,7 +49,7 @@ insertSnapshot conn snap = withTransaction conn $ do
     (sid, mbs, rbs)
   pure ()
 
--- fetch all; skip bad rows
+
 getAllSnapshots :: Connection -> IO [Models.Snapshot]
 getAllSnapshots conn = do
   rows <- query_ conn "SELECT snapshotId, metadata, relations FROM snapshots"
