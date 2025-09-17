@@ -40,8 +40,6 @@ It allows administrators to create **many-sorted relation snapshots** from Wikid
 
 ```bash
 snapshot-server/
-├── app/                     # Main server entrypoint
-│   └── Main.hs
 ├── app-cli/                 # CLI entrypoint
 │   └── Main.hs
 ├── docs/                    # Documentation (report, diagrams, etc.)
